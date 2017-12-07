@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# coding:utf8
+
 from numpy import *
 
 def loadDataSet(fileName):
@@ -74,8 +77,29 @@ def smoSimple(dataMatIn, classLabels, C, toler, maxIter):
                 print "itertion number: %d" % iter
         return b, alphas
 
-def smoP(dataMatIn, classLabels, C, toler, maxIter, kTup('lin', 0)):
-    oS = optStruct(mat(dtaMatIn), mat(classLabels).transpose(), C, toler)
+def smoP(dataMatIn, classLabels, C, toler, maxIter, kTup=('lin', 0)):
+    oS = optStruct(mat(dataMatIn), mat(classLabels).transpose(), C, toler)
+    iter = 0
+    entireSet = True
+    alphaPairsChanged = 0
+    while (iter < maxIter) and ((alphaPairsChanged > 0) or (entireSet)):
+        alphaPairsChanged = 0
+        if entireSet:
+            for i in range(oS.m):
+                alphaPairsChanged += innerL(i,oS)
+            print "fullSet, iter: %d i: %d, pairs changed %d" % (iter, i, alphaPairsChnaged)
+            iter += 1
+        else:
+            nonBoundIs = nonzero((oS.alphas.A > 0) * (oS.alphas.A < C))[0]
+            for i in nonBoundIs:
+                alphaPairsChanged += innerL(i, oS)
+                print "non-bound, iter: %d i: %d, pairs changed %d" % (iter, i, alphaPairsChanged)
+            iter += 1
+        if entireSet: entireSet = False
+        elif (alphaPairsChanged == 0): 
+            entireSet = True
+        print "iteration number: %d" % iter
+    return oS.b, oS.alphas
 
 def innerL(i, oS):
     Ei = calcEk(oS, i)
@@ -105,12 +129,8 @@ def innerL(i, oS):
             return 0
         oS.alphas[i] += oS.labelMat[j]*oS.labelMat[i]*(alphaJold-oS.alphas[j])
         updateEk(oS,i)
-        b1 = oS.b -Ei -oS.labelMat[i]*(oS.alphas[i]-alphaIold)*\
-            oS.X[i,:]*oS.X[i,:].T - oS.LabelMat[j]*\
-            (oS.alphas[j]-alphaJold)*(oS.X[j,:]*oS.X[j,:].T
-        b2 = oS.b - Ej - oS.labelMat[i]*(oS.alphas[i]-alphaIold)*\
-            oS.X[i,:]*oS.X[j,:].T - oS.labelMat[j]*\
-             (oS.alphas[j]-alphaJold)*oS.X[j,:]*oS.X[j,:].T
+        b1 = oS.b - Ei - oS.labelMat[i]*(oS.alphas[i]-alphaIold)*oS.X[i,:]*oS.X[i,:].T - oS.LabelMat[j]*(oS.alphas[j]-alphaJold)*(oS.X[j,:]*oS.X[j,:].T)
+        b2 = oS.b - Ej - oS.labelMat[i]*(oS.alphas[i]-alphaIold)*oS.X[i,:]*oS.X[j,:].T - oS.LabelMat[j]*(oS.alphas[j]-alphaJold)*(oS.X[j,:]*oS.X[j,:].T)
         if (0 < oS.alphas[i]) and (oS.C > oS.alphas[i]):
              oS.b = b1
         elif (0 < oS.alphas[j]) and (oS.C > oS.alphas[j]):
@@ -122,7 +142,20 @@ def innerL(i, oS):
         return 0
 
 class optStruct:
-    def _init_(self,dataMatIn, classLabels, C, toler):
+    """
+    建立的数据结构来保存所有的重要值
+    """
+    def __init__(self,dataMatIn, classLabels, C, toler):
+        """
+        Args:            
+        2153         -150             dataMatIn 数据集
+        2154         3151             classLabels 类别标签
+        2155         3152             C 松弛变量（常量值），允许有些数据点可以处于分割面的错误的一侧。
+        2156         3153               控制最大化间隔和保证大部分的函数间隔小于1.0这两个目标的权重。
+        2157         3154               可以通过调节该参数达到不同的结果。
+        2158         3155             toler 容错率
+        2159         3156             kTup  包含核函数信息的元组
+        """
         self.X = dataMatIn
         self.labelMat = classLabels
         self.C = C
