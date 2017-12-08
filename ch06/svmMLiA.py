@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # coding:utf8
-
+import pdb
 from numpy import *
 
 def loadDataSet(fileName):
@@ -87,7 +87,7 @@ def smoP(dataMatIn, classLabels, C, toler, maxIter, kTup=('lin', 0)):
         if entireSet:
             for i in range(oS.m):
                 alphaPairsChanged += innerL(i,oS)
-            print "fullSet, iter: %d i: %d, pairs changed %d" % (iter, i, alphaPairsChnaged)
+            print "fullSet, iter: %d i: %d, pairs changed %d" % (iter, i, alphaPairsChanged)
             iter += 1
         else:
             nonBoundIs = nonzero((oS.alphas.A > 0) * (oS.alphas.A < C))[0]
@@ -102,12 +102,12 @@ def smoP(dataMatIn, classLabels, C, toler, maxIter, kTup=('lin', 0)):
     return oS.b, oS.alphas
 
 def innerL(i, oS):
+   ##  pdb.set_trace()
     Ei = calcEk(oS, i)
-    if ((oS.labelMat[i]*Ei < -oS.tol) and (oS.alphas[i] < oS.C)) or\
-       ((oS.labelMat[i]*Ei > oS.tol) and (oS.alphas[i] > 0)):
+    if ((oS.labelMat[i]*Ei < -oS.tol) and (oS.alphas[i] < oS.C)) or ((oS.labelMat[i]*Ei > oS.tol) and (oS.alphas[i] > 0)):
         j,Ej = selectJ(i,oS,Ei)
         alphaIold = oS.alphas[i].copy()
-        alphaJold = os.alphas[j].copy()
+        alphaJold = oS.alphas[j].copy()
         if (oS.labelMat[i] != oS.labelMat[j]):
             L = max(0, oS.alphas[j] - oS.alphas[i])
             H = min(oS.C, oS.C+oS.alphas[j]-oS.alphas[i])
@@ -117,20 +117,20 @@ def innerL(i, oS):
         if L == H: 
             print "L==H"
             return 0
-        eta = 2.0*oS.X[i,:]*oS.XX[j,:].T-oS.X[i,:]*oS.X[i,:].T-oS.X[j,:]*oS.X[j,:].T
+        eta = 2.0*oS.X[i,:]*oS.X[j,:].T-oS.X[i,:]*oS.X[i,:].T-oS.X[j,:]*oS.X[j,:].T
         if eta>=0: 
             print "eta>=0"
             return 0
         oS.alphas[j] -= oS.labelMat[j]*(Ei - Ej)/eta
         oS.alphas[j] = clipAlpha(oS.alphas[j], H, L)
         updateEk(oS, j)
-        if (abs(oS.alphas[j] - alphasJold) < 0.00001):
+        if (abs(oS.alphas[j] - alphaJold) < 0.00001):
             print "j not moving enough"
             return 0
         oS.alphas[i] += oS.labelMat[j]*oS.labelMat[i]*(alphaJold-oS.alphas[j])
         updateEk(oS,i)
-        b1 = oS.b - Ei - oS.labelMat[i]*(oS.alphas[i]-alphaIold)*oS.X[i,:]*oS.X[i,:].T - oS.LabelMat[j]*(oS.alphas[j]-alphaJold)*(oS.X[j,:]*oS.X[j,:].T)
-        b2 = oS.b - Ej - oS.labelMat[i]*(oS.alphas[i]-alphaIold)*oS.X[i,:]*oS.X[j,:].T - oS.LabelMat[j]*(oS.alphas[j]-alphaJold)*(oS.X[j,:]*oS.X[j,:].T)
+        b1 = oS.b - Ei - oS.labelMat[i]*(oS.alphas[i]-alphaIold)*oS.X[i,:]*oS.X[i,:].T - oS.labelMat[j]*(oS.alphas[j]-alphaJold)*(oS.X[j,:]*oS.X[j,:].T)
+        b2 = oS.b - Ej - oS.labelMat[i]*(oS.alphas[i]-alphaIold)*oS.X[i,:]*oS.X[j,:].T - oS.labelMat[j]*(oS.alphas[j]-alphaJold)*(oS.X[j,:]*oS.X[j,:].T)
         if (0 < oS.alphas[i]) and (oS.C > oS.alphas[i]):
              oS.b = b1
         elif (0 < oS.alphas[j]) and (oS.C > oS.alphas[j]):
@@ -148,20 +148,20 @@ class optStruct:
     def __init__(self,dataMatIn, classLabels, C, toler):
         """
         Args:            
-        2153         -150             dataMatIn 数据集
-        2154         3151             classLabels 类别标签
-        2155         3152             C 松弛变量（常量值），允许有些数据点可以处于分割面的错误的一侧。
-        2156         3153               控制最大化间隔和保证大部分的函数间隔小于1.0这两个目标的权重。
-        2157         3154               可以通过调节该参数达到不同的结果。
-        2158         3155             toler 容错率
-        2159         3156             kTup  包含核函数信息的元组
+            dataMatIn 数据集
+            classLabels 类别标签
+            C 松弛变量（常量值），允许有些数据点可以处于分割面的错误的一侧。
+              控制最大化间隔和保证大部分的函数间隔小于1.0这两个目标的权重。
+              可以通过调节该参数达到不同的结果。
+            toler 容错率
+            kTup  包含核函数信息的元组
         """
         self.X = dataMatIn
         self.labelMat = classLabels
         self.C = C
         self.tol = toler
         self.m = shape(dataMatIn)[0]
-        self.alphas = mat(zeros((self.m)))
+        self.alphas = mat(zeros((self.m,1)))
         self.b = 0
         self.eCache = mat(zeros((self.m,2)))
 
@@ -178,7 +178,7 @@ def selectJ(i, oS, Ei):
         for k in validEcacheList:
             if k == i:
                 continue
-            Ek = cacEk(oS, k)
+            Ek = calcEk(oS, k)
             deltaE = abs(Ei - Ek)
             if (deltaE > maxDeltaE):
                 maxK = k
@@ -190,7 +190,15 @@ def selectJ(i, oS, Ei):
         Ej = calcEk(oS, j)
     return j, Ej
 
-def updataEk(oS, k):
+def updateEk(oS, k):
     Ek = calcEk(oS,k)
     oS.eCache[k] = [1,Ek]
 
+def calcWs(alphas, dataArr, classLabels):
+    X = mat(dataArr)
+    labelMat = mat(classLabels).transpose()
+    m, n = shape(X)
+    w = zeros((n,1))
+    for i in range(m):
+        w += multiply(alphas[i]*labelMat[i], X[i,:].T)
+    return w
